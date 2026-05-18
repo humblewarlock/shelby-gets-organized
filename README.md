@@ -42,3 +42,4 @@ To install as a PWA on mobile: open the deployed URL in Safari (iOS) or Chrome (
 npm run build
 npm run preview
 ```
+#shelby-gets-organized
