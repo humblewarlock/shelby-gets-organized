@@ -142,31 +142,16 @@ export default function AddItem({ addItem, navigateTo }) {
     setIsExtracting(true)
     setVoiceError('')
     try {
-      const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY
-      if (!apiKey) throw new Error('No VITE_ANTHROPIC_API_KEY set in environment.')
-
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/extract', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 512,
-          system: `You are a data extractor for a resale inventory app. The user will describe a purchase. Extract: name (string), source (string - where they bought it, market or location), costMXN (number - amount paid in MXN), targetMXN (number - target resale price in MXN), soldMXN (number or null - if they mentioned selling it). Return ONLY valid JSON with those exact keys. No explanation, no markdown, just raw JSON.`,
-          messages: [{ role: 'user', content: transcript.trim() }],
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: transcript.trim() }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error?.message || `API error ${res.status}`)
+        throw new Error(err?.error || `Server error ${res.status}`)
       }
-      const data = await res.json()
-      const text = data.content?.[0]?.text || ''
-      const parsed = JSON.parse(text)
+      const { extracted: parsed } = await res.json()
       setForm(f => ({
         ...f,
         name: parsed.name || f.name,
