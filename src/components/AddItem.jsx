@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 const USD_RATE = 0.0577
 
@@ -68,6 +68,31 @@ export default function AddItem({ addItem, navigateTo }) {
   const hasSpeechRecognition = typeof window !== 'undefined' &&
     ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)
 
+  // 'unknown' = never asked | 'requesting' = in-flight | 'granted' | 'denied'
+  const [micPermission, setMicPermission] = useState('unknown')
+
+  // On mount, check whether permission was already granted in a previous session
+  // so returning users skip the explicit request step entirely.
+  useEffect(() => {
+    if (!navigator.permissions) return
+    let permStatus
+    navigator.permissions
+      .query({ name: 'microphone' })
+      .then(s => {
+        permStatus = s
+        if (s.state === 'granted') setMicPermission('granted')
+        else if (s.state === 'denied') setMicPermission('denied')
+        // 'prompt' → stay 'unknown', show the request button
+        s.onchange = () => {
+          if (s.state === 'granted') setMicPermission('granted')
+          else if (s.state === 'denied') setMicPermission('denied')
+          else setMicPermission('unknown')
+        }
+      })
+      .catch(() => {}) // Permissions API not supported — stay 'unknown'
+    return () => { if (permStatus) permStatus.onchange = null }
+  }, [])
+
   const update = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
   const canSubmit = form.name.trim() && form.costMXN !== '' && form.targetMXN !== ''
@@ -98,9 +123,32 @@ export default function AddItem({ addItem, navigateTo }) {
     }, 1200)
   }
 
-  // Voice recording
+  // ── Phase 1: request mic permission ──────────────────────────────────────────
+  // This is the only async function in the voice flow. It calls getUserMedia to
+  // trigger the system permission prompt and immediately releases the stream.
+  // SpeechRecognition is NOT touched here, so there is no gesture-context issue.
+  const requestPermission = async () => {
+    setMicPermission('requesting')
+    setVoiceError('')
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(t => t.stop()) // permission secured — release stream
+      setMicPermission('granted')
+    } catch (err) {
+      setMicPermission('denied')
+      setVoiceError(
+        err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError'
+          ? 'Microphone access denied. On iPhone: Settings → Safari → Microphone → Allow.'
+          : 'Could not access microphone: ' + err.message,
+      )
+    }
+  }
+
+  // ── Phase 2: start recording ──────────────────────────────────────────────────
+  // Called synchronously from onClick — no await anywhere before rec.start().
+  // Safari iOS requires SpeechRecognition.start() to run within the same
+  // synchronous call stack as the user gesture; any await breaks that chain.
   const startRecording = () => {
-    if (!hasSpeechRecognition) return
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     const rec = new SR()
     rec.continuous = true
@@ -116,12 +164,12 @@ export default function AddItem({ addItem, navigateTo }) {
       setTranscript(finalText + interim)
     }
     rec.onerror = (e) => {
-      setVoiceError('Mic error: ' + e.error)
+      setVoiceError('Recording error: ' + e.error)
       setIsRecording(false)
     }
     rec.onend = () => setIsRecording(false)
     recognitionRef.current = rec
-    rec.start()
+    rec.start() // ← must stay synchronous; do not move below any await
     setIsRecording(true)
     setTranscript('')
     setVoiceError('')
@@ -132,6 +180,7 @@ export default function AddItem({ addItem, navigateTo }) {
     setIsRecording(false)
   }
 
+  // Plain, synchronous toggle — startRecording() has no awaits.
   const toggleRecording = () => {
     if (isRecording) stopRecording()
     else startRecording()
@@ -308,12 +357,70 @@ export default function AddItem({ addItem, navigateTo }) {
         /* Voice Mode */
         <div className="space-y-4">
           {!hasSpeechRecognition ? (
+            // Browser doesn't support SpeechRecognition at all
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
               <p className="text-2xl mb-2">🎙️</p>
               <p className="text-sm font-semibold text-amber-800">Speech recognition not supported</p>
               <p className="text-xs text-amber-600 mt-1">Try Chrome or Edge on Android/desktop for voice input.</p>
             </div>
+
+          ) : micPermission === 'unknown' || micPermission === 'requesting' ? (
+            // Phase 1 — ask for mic permission explicitly via getUserMedia.
+            // This tap is async (getUserMedia) so we keep SpeechRecognition out of it entirely.
+            <div className="flex flex-col items-center gap-4 py-6">
+              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-9 h-9 text-gray-400">
+                  <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M19 10v2a7 7 0 01-14 0v-2" strokeLinecap="round" />
+                  <line x1="12" y1="19" x2="12" y2="23" strokeLinecap="round" />
+                  <line x1="8" y1="23" x2="16" y2="23" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-800">Microphone access needed</p>
+                <p className="text-xs text-gray-500 mt-1">Tap below to allow mic access, then you can record.</p>
+              </div>
+              <button
+                onClick={requestPermission}
+                disabled={micPermission === 'requesting'}
+                className="px-6 py-3 rounded-2xl bg-[#1D9E75] text-white font-semibold text-sm active:scale-95 transition-all disabled:opacity-50"
+              >
+                {micPermission === 'requesting' ? 'Requesting…' : 'Enable Microphone'}
+              </button>
+              {voiceError && (
+                <div className="w-full bg-red-50 border border-red-200 rounded-xl p-3">
+                  <p className="text-xs text-red-600">{voiceError}</p>
+                </div>
+              )}
+            </div>
+
+          ) : micPermission === 'denied' ? (
+            // Permission was denied — show instructions, let them retry
+            <div className="flex flex-col items-center gap-4 py-6">
+              <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="w-9 h-9 text-red-400">
+                  <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" strokeLinecap="round" strokeLinejoin="round" />
+                  <line x1="2" y1="2" x2="22" y2="22" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-gray-800">Microphone access denied</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  iPhone: <strong>Settings → Safari → Microphone → Allow</strong>
+                  <br />Android: tap the lock icon in the address bar → Microphone → Allow
+                </p>
+              </div>
+              <button
+                onClick={requestPermission}
+                className="px-6 py-2.5 rounded-2xl border border-gray-300 text-gray-700 text-sm font-medium active:scale-95 transition-all"
+              >
+                Try Again
+              </button>
+            </div>
+
           ) : (
+            // Phase 2 — permission granted. toggleRecording() is fully synchronous;
+            // rec.start() runs directly in the onClick handler with no awaits before it.
             <>
               <div className="flex flex-col items-center gap-4 py-4">
                 <button
