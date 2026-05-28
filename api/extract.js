@@ -5,11 +5,7 @@
 const SYSTEM_PROMPT = `You are a data extractor for a resale inventory app. The user will describe a purchase. Extract: name (string), source (string - where they bought it, market or location), costMXN (number - amount paid in MXN), targetMXN (number - target resale price in MXN), soldMXN (number or null - if they mentioned selling it). Return ONLY valid JSON with those exact keys. No explanation, no markdown, just raw JSON.`
 
 export default async function handler(req, res) {
-  // DEBUG — remove once env var is confirmed working
-  console.log('[extract] env keys:', Object.keys(process.env))
-  console.log('[extract] ANTHROPIC_API_KEY:', process.env.ANTHROPIC_API_KEY ?? '(undefined)')
-
-  if (req.method !== 'POST') {
+if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
