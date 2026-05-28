@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n api,vite -c blue,green \"node server.js\" \"vite\"",
+    "dev": "vercel dev",
+    "dev:express": "concurrently -n api,vite -c blue,green \"node server.js\" \"vite\"",
     "dev:api": "node server.js",
     "dev:vite": "vite",
     "build": "vite build",
