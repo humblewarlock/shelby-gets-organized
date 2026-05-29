@@ -2,14 +2,14 @@
 // The underscore prefix tells Vercel this is not a route handler.
 import { createClient } from '@supabase/supabase-js'
 
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY environment variables')
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_KEY) {
+  throw new Error('Missing SUPABASE_URL or SUPABASE_KEY environment variables')
 }
 
-// Service role key bypasses Row Level Security — only used server-side, never in the browser.
+// Anon key — safe to use server-side with RLS disabled on the items table.
 export const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  process.env.SUPABASE_KEY,
 )
 
 // DB row (snake_case) → app item (camelCase)
