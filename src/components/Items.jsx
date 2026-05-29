@@ -71,11 +71,19 @@ function ItemCard({ item, onDelete }) {
 
 export default function Items({ items, deleteItem }) {
   const [search, setSearch] = useState('')
+  const [confirmId, setConfirmId] = useState(null)
 
   const filtered = items.filter(i =>
     i.name.toLowerCase().includes(search.toLowerCase()) ||
     (i.source || '').toLowerCase().includes(search.toLowerCase())
   )
+
+  const pendingItem = items.find(i => i.id === confirmId)
+
+  const handleConfirmDelete = () => {
+    deleteItem(confirmId)
+    setConfirmId(null)
+  }
 
   return (
     <div className="p-4 space-y-3">
@@ -104,8 +112,44 @@ export default function Items({ items, deleteItem }) {
       ) : (
         <div className="space-y-3">
           {filtered.map(item => (
-            <ItemCard key={item.id} item={item} onDelete={deleteItem} />
+            <ItemCard key={item.id} item={item} onDelete={setConfirmId} />
           ))}
+        </div>
+      )}
+
+      {/* Confirmation modal */}
+      {confirmId && (
+        <div
+          className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4"
+          onClick={() => setConfirmId(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-4 shadow-xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="space-y-1">
+              <h2 className="text-base font-bold text-gray-900">Delete item?</h2>
+              <p className="text-sm text-gray-500">
+                Are you sure you want to delete{' '}
+                <span className="font-semibold text-gray-700">"{pendingItem?.name}"</span>?
+                This can't be undone.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmId(null)}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-700 active:scale-95 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold active:scale-95 transition-all"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
