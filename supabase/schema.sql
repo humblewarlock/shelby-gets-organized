@@ -7,9 +7,9 @@ create table if not exists items (
   created_at  timestamptz not null,
   name        text        not null,
   source      text,
-  price_paid   numeric,
-  target_price numeric,
-  sold_mxn     numeric,
+  cost_mxn    numeric,
+  target_mxn  numeric,
+  sold_mxn    numeric,
   photo       text        -- base64 data URL; consider Supabase Storage for large images
 );
 

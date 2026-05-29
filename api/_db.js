@@ -18,11 +18,11 @@ export function toItem(row) {
     id:         row.id,
     createdAt:  row.created_at,
     name:       row.name,
-    source:     row.source      ?? '',
-    costMXN:    row.price_paid  != null ? Number(row.price_paid)  : 0,
-    targetMXN:  row.target_price != null ? Number(row.target_price) : 0,
-    soldMXN:    row.sold_mxn    != null ? Number(row.sold_mxn)    : null,
-    photo:      row.photo       ?? null,
+    source:     row.source     ?? '',
+    costMXN:    row.cost_mxn   != null ? Number(row.cost_mxn)   : 0,
+    targetMXN:  row.target_mxn != null ? Number(row.target_mxn) : 0,
+    soldMXN:    row.sold_mxn   != null ? Number(row.sold_mxn)   : null,
+    photo:      row.photo      ?? null,
   }
 }
 
@@ -34,8 +34,8 @@ export function toRow(data) {
     createdAt: 'created_at',
     name:      'name',
     source:    'source',
-    costMXN:   'price_paid',
-    targetMXN: 'target_price',
+    costMXN:   'cost_mxn',
+    targetMXN: 'target_mxn',
     soldMXN:   'sold_mxn',
     photo:     'photo',
   }
